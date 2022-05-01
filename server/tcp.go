@@ -82,8 +82,10 @@ ReadLoop:
 			if err != nil {
 				if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
 					continue ReadLoop
+				} else {
+					t.logger.Println("error reading message from client ", err)
+					return
 				}
-				t.logger.Println("error reading message from client ", err)
 			}
 
 			conn.Write([]byte(data))
