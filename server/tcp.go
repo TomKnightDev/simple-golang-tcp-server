@@ -71,7 +71,6 @@ func (t *TCP) serve(ctx context.Context) {
 func (t *TCP) handleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
-ReadLoop:
 	for {
 		select {
 		case <-ctx.Done():
@@ -81,15 +80,15 @@ ReadLoop:
 			data, err := bufio.NewReader(conn).ReadString('\n')
 			if err != nil {
 				if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
-					continue ReadLoop
+					continue
 				} else {
 					t.logger.Println("error reading message from client ", err)
 					return
 				}
+			} else {
+				conn.Write([]byte(data))
+				t.store.Add(time.Now().String(), "value")
 			}
-
-			conn.Write([]byte(data))
-			t.store.Add(time.Now().String(), "value")
 		}
 	}
 }
