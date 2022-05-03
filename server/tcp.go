@@ -3,8 +3,10 @@ package server
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -86,9 +88,35 @@ func (t *TCP) handleConnection(ctx context.Context, conn net.Conn) {
 					return
 				}
 			} else {
-				conn.Write([]byte(data))
-				t.store.Add(time.Now().String(), "value")
+				params := strings.Split(data, "|")
+
+				response := t.handleRequest(params)
+
+				conn.Write([]byte(response))
 			}
 		}
 	}
+}
+
+func (t *TCP) handleRequest(params []string) string {
+	rc := make(chan store.Response)
+	defer close(rc)
+
+	if strings.ToLower(params[0]) == "get" {
+		t.store.Get(params[1], rc)
+		response := <-rc
+		if response.Err != nil {
+			return fmt.Sprint("failed to get value from store: ", response.Err)
+		}
+		return response.Message
+	} else if strings.ToLower(params[0]) == "add" {
+		t.store.Add(params[1], params[2], rc)
+		response := <-rc
+		if response.Err != nil {
+			return fmt.Sprint("failed to add value to store: ", response.Err)
+		}
+		return response.Message
+	}
+
+	return ""
 }

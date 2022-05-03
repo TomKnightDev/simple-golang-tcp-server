@@ -2,33 +2,72 @@ package store
 
 import (
 	"log"
-	"time"
 )
 
-type Store struct {
+type Store interface {
+	Add(string, string, chan Response)
+	Get(string, chan Response)
+	LogAll()
+}
+
+type MemStore struct {
 	store  map[string]string
 	logger *log.Logger
 }
 
-func New(logger *log.Logger) *Store {
-	return &Store{
+var requestChan = make(chan request)
+
+type request struct {
+	reqType      string
+	key          string
+	value        string
+	responseChan chan Response
+}
+
+type Response struct {
+	Message string
+	Err     error
+}
+
+func NewMemStore(logger *log.Logger) *MemStore {
+	s := &MemStore{
 		store:  make(map[string]string),
 		logger: logger,
 	}
+
+	go func() {
+		for {
+			request := <-requestChan
+
+			if request.reqType == "get" {
+				request.responseChan <- Response{s.store[request.key], nil}
+			} else if request.reqType == "add" {
+				s.store[request.key] = request.value
+				request.responseChan <- Response{"added", nil}
+			}
+		}
+	}()
+
+	return s
 }
 
-func (s *Store) Add(key, value string) {
-	s.logger.Println("adding key/value to store")
-	time.Sleep(time.Second * 2)
-	s.store[key] = value
-	s.logger.Println("added key/value to store")
+func (s *MemStore) Add(key string, value string, responseChan chan Response) {
+	go func() {
+		requestChan <- request{"add", key, "value", responseChan}
+	}()
 }
 
-func (s *Store) Get(key string) string {
-	return s.store[key]
+func (s *MemStore) Get(key string, responseChan chan Response) {
+	go func() {
+		requestChan <- request{"get", key, "", responseChan}
+	}()
 }
 
-func (s *Store) LogAll() {
+func (s *MemStore) Delete(key string) {
+	delete(s.store, key)
+}
+
+func (s *MemStore) LogAll() {
 	for k, v := range s.store {
 		s.logger.Printf("%s: %s\n", k, v)
 	}

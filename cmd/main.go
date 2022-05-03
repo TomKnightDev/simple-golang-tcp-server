@@ -12,12 +12,12 @@ import (
 
 func main() {
 	logger := log.New(os.Stdout, "tcp-server", log.LstdFlags|log.Lshortfile)
-	store := store.New(logger)
+	memStore := store.NewMemStore(logger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	server.StartTCPServer(ctx, logger, *store)
+	server.StartTCPServer(ctx, logger, memStore)
 
-	logger.Println("server stopped")
+	logger.Println("end program")
 }
